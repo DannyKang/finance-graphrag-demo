@@ -1,0 +1,26 @@
+.env
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+data/pdfs/
+data/excel/
+data/logs/
+.venv/
+*.egg
+
+# Docker volumes & logs
+docker/graphrag/neo4j_data/
+docker/graphrag/graphrag_pg_data/
+docker/graphrag/data/
+
+# GraphRAG cache
+cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/

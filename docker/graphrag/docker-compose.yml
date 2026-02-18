@@ -1,0 +1,36 @@
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7476:7474"    # HTTP
+      - "7689:7687"    # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+
+  graphrag-postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5433:5432"    # 기존 ETF DB(5432)와 충돌 방지
+    environment:
+      POSTGRES_USER: graphrag
+      POSTGRES_PASSWORD: graphragpass
+      POSTGRES_DB: graphrag_db
+    volumes:
+      - graphrag_pg_data:/var/lib/postgresql/data
+
+  neodash:
+    image: neo4jlabs/neodash:latest
+    ports:
+      - "5005:5005"
+    environment:
+      ssoEnabled: "false"
+      standalone: "false"
+    depends_on:
+      - neo4j
+
+volumes:
+  neo4j_data:
+  graphrag_pg_data:
