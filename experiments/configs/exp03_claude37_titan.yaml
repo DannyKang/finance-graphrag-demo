@@ -1,0 +1,20 @@
+# Experiment 03: Claude 3.7 Sonnet + Amazon Titan Embed Text V2
+# Compare embedding model impact on retrieval quality
+name: exp03_claude37_titan
+description: "Claude 3.7 Sonnet extraction + Amazon Titan Embed Text V2"
+
+extraction_llm: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+response_llm: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+embedding_model: amazon.titan-embed-text-v2:0
+
+pdf_limit: 50
+extraction_num_workers: 1
+extraction_num_threads_per_worker: 8
+enable_cache: true
+
+eval_queries:
+  - "TIGER 미국S&P500 ETF의 주요 보유종목과 비중은?"
+  - "TIGER NVDA-UST 커버드콜 ETF의 투자위험은 무엇인가요?"
+  - "미래에셋자산운용이 운용하는 채권형 ETF는 어떤 것이 있나요?"
+  - "환율위험이 있는 ETF 상품들은?"
+  - "반도체 섹터에 투자하는 ETF는?"

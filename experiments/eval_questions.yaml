@@ -1,0 +1,335 @@
+# ============================================================================
+# GraphRAG 평가 질문셋 (TIGER ETF 도메인)
+# ============================================================================
+# 질문 유형별 분류:
+#   - single_hop: 단일 엔티티/관계 조회 (baseline)
+#   - multi_hop_2: 2-hop 관계 추론
+#   - multi_hop_3: 3-hop 관계 추론
+#   - aggregation: 여러 엔티티를 집계/비교
+#   - inference: 그래프 구조에서 추론 필요
+#   - negative: 존재하지 않는 정보 (hallucination 탐지)
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Category 1: Single-Hop (단일 관계 조회) - 10문항
+# ---------------------------------------------------------------------------
+single_hop:
+  - id: SH-01
+    query: "TIGER 미국S&P500 ETF의 벤치마크 지수는 무엇인가요?"
+    expected_keywords: ["S&P 500", "S&P500"]
+    relationship_tested: TRACKS
+    difficulty: easy
+
+  - id: SH-02
+    query: "TIGER 미국S&P500 ETF의 총보수(비용)는 얼마인가요?"
+    expected_keywords: ["총보수", "%"]
+    relationship_tested: HAS_FEE
+    difficulty: easy
+
+  - id: SH-03
+    query: "TIGER NVDA-UST 커버드콜 ETF의 수탁회사는 어디인가요?"
+    expected_keywords: ["수탁"]
+    relationship_tested: TRUSTEED_BY
+    difficulty: easy
+
+  - id: SH-04
+    query: "TIGER 코리아배당다우존스 ETF는 어떤 거래소에 상장되어 있나요?"
+    expected_keywords: ["한국거래소", "KRX", "거래소"]
+    relationship_tested: LISTED_ON
+    difficulty: easy
+
+  - id: SH-05
+    query: "TIGER 미국배당다우존스 ETF는 환헤지를 하나요?"
+    expected_keywords: ["환헤지", "환율"]
+    relationship_tested: HAS_RISK
+    difficulty: easy
+
+  - id: SH-06
+    query: "TIGER 차이나AI소프트웨어 ETF의 투자 대상 국가는 어디인가요?"
+    expected_keywords: ["중국", "차이나", "China"]
+    relationship_tested: LOCATED_IN
+    difficulty: easy
+
+  - id: SH-07
+    query: "미래에셋자산운용은 어떤 유형의 기관인가요?"
+    expected_keywords: ["자산운용", "집합투자업자", "운용사"]
+    relationship_tested: entity_type
+    difficulty: easy
+
+  - id: SH-08
+    query: "TIGER 미국초단기국채 ETF는 어떤 자산에 투자하나요?"
+    expected_keywords: ["국채", "채권", "미국"]
+    relationship_tested: INVESTS_IN
+    difficulty: easy
+
+  - id: SH-09
+    query: "TIGER 미국S&P500 ETF의 상장일은 언제인가요?"
+    expected_keywords: ["상장일", "20"]
+    relationship_tested: attribute
+    difficulty: easy
+
+  - id: SH-10
+    query: "TIGER NVDA-UST 커버드콜 ETF는 어떤 파생상품 전략을 사용하나요?"
+    expected_keywords: ["커버드콜", "covered call", "옵션"]
+    relationship_tested: INVESTS_IN
+    difficulty: easy
+
+# ---------------------------------------------------------------------------
+# Category 2: Multi-Hop 2 (2-hop 관계 추론) - 10문항
+# ---------------------------------------------------------------------------
+multi_hop_2:
+  - id: MH2-01
+    query: "미래에셋자산운용이 운용하는 ETF 중 S&P 500 지수를 추적하는 상품은?"
+    expected_keywords: ["S&P 500", "미국S&P500"]
+    hops: ["MANAGES → TRACKS"]
+    difficulty: medium
+
+  - id: MH2-02
+    query: "반도체 섹터에 투자하는 TIGER ETF의 벤치마크 지수는 무엇인가요?"
+    expected_keywords: ["지수", "반도체", "NVDA"]
+    hops: ["BELONGS_TO_SECTOR → TRACKS"]
+    difficulty: medium
+
+  - id: MH2-03
+    query: "채권형 ETF 중 환율위험이 있는 상품은 어떤 것이 있나요?"
+    expected_keywords: ["채권", "환율", "위험"]
+    hops: ["INVESTS_IN(Bond) → HAS_RISK"]
+    difficulty: medium
+
+  - id: MH2-04
+    query: "커버드콜 전략을 사용하는 ETF들은 어떤 기초자산에 투자하나요?"
+    expected_keywords: ["커버드콜", "NVDA", "채권"]
+    hops: ["strategy_filter → INVESTS_IN"]
+    difficulty: medium
+
+  - id: MH2-05
+    query: "미국에 투자하는 TIGER ETF들의 총보수를 알려주세요."
+    expected_keywords: ["미국", "보수", "%"]
+    hops: ["LOCATED_IN → HAS_FEE"]
+    difficulty: medium
+
+  - id: MH2-06
+    query: "TIGER 미국S&P500 ETF가 보유한 종목 중 가장 비중이 큰 것은?"
+    expected_keywords: ["보유", "비중", "%"]
+    hops: ["TRACKS → HOLDS"]
+    difficulty: medium
+
+  - id: MH2-07
+    query: "한국거래소에 상장된 해외 채권 투자 ETF는?"
+    expected_keywords: ["거래소", "채권", "해외"]
+    hops: ["LISTED_ON → INVESTS_IN(Bond)"]
+    difficulty: medium
+
+  - id: MH2-08
+    query: "자본시장법의 규제를 받는 파생상품형 ETF는 어떤 것이 있나요?"
+    expected_keywords: ["자본시장법", "파생"]
+    hops: ["GOVERNED_BY → INVESTS_IN(Derivative)"]
+    difficulty: medium
+
+  - id: MH2-09
+    query: "배당 관련 ETF들의 최근 분배금은 얼마인가요?"
+    expected_keywords: ["배당", "분배금", "원"]
+    hops: ["category_filter → distribution_data"]
+    difficulty: medium
+
+  - id: MH2-10
+    query: "TIGER 미국배당다우존스타겟데일리커버드콜 ETF의 운용사가 관리하는 다른 배당형 상품은?"
+    expected_keywords: ["미래에셋", "배당"]
+    hops: ["MANAGES(reverse) → MANAGES(filter)"]
+    difficulty: medium
+
+# ---------------------------------------------------------------------------
+# Category 3: Multi-Hop 3 (3-hop 관계 추론) - 10문항
+# ---------------------------------------------------------------------------
+multi_hop_3:
+  - id: MH3-01
+    query: "미래에셋자산운용이 운용하는 ETF 중 S&P 500 지수를 추적하는 상품의 주요 보유종목은?"
+    expected_keywords: ["Apple", "Microsoft", "NVIDIA", "보유"]
+    hops: ["MANAGES → TRACKS → HOLDS"]
+    difficulty: hard
+
+  - id: MH3-02
+    query: "미국에 투자하는 TIGER ETF들의 수탁회사와 판매회사는 각각 어디인가요?"
+    expected_keywords: ["수탁", "판매", "은행"]
+    hops: ["LOCATED_IN → TRUSTEED_BY, DISTRIBUTED_BY"]
+    difficulty: hard
+
+  - id: MH3-03
+    query: "TIGER 미국S&P500 ETF가 보유한 종목 중 IT 섹터에 속하는 기업은?"
+    expected_keywords: ["Apple", "Microsoft", "NVIDIA", "IT"]
+    hops: ["TRACKS → HOLDS → BELONGS_TO_SECTOR"]
+    difficulty: hard
+
+  - id: MH3-04
+    query: "한국거래소에 상장된 해외 투자 ETF 중 총보수가 가장 낮은 상품은?"
+    expected_keywords: ["거래소", "보수", "%"]
+    hops: ["LISTED_ON → LOCATED_IN(foreign) → HAS_FEE"]
+    difficulty: hard
+
+  - id: MH3-05
+    query: "미래에셋자산운용이 운용하는 커버드콜 ETF가 투자하는 기초자산의 섹터는?"
+    expected_keywords: ["미래에셋", "커버드콜", "반도체", "섹터"]
+    hops: ["MANAGES → INVESTS_IN → BELONGS_TO_SECTOR"]
+    difficulty: hard
+
+  - id: MH3-06
+    query: "환헤지를 하지 않는 미국 투자 ETF들의 벤치마크 지수와 총보수를 비교해주세요."
+    expected_keywords: ["환헤지", "지수", "보수"]
+    hops: ["HAS_RISK(currency) → TRACKS → HAS_FEE"]
+    difficulty: hard
+
+  - id: MH3-07
+    query: "채권에 투자하는 ETF들의 운용사가 관리하는 주식형 상품은 어떤 것이 있나요?"
+    expected_keywords: ["채권", "주식", "ETF"]
+    hops: ["INVESTS_IN(Bond) → MANAGES(reverse) → MANAGES(equity)"]
+    difficulty: hard
+
+  - id: MH3-08
+    query: "금융위원회가 규제하는 ETF 중 파생상품에 투자하면서 환율위험이 있는 상품은?"
+    expected_keywords: ["금융위원회", "파생", "환율"]
+    hops: ["REGULATED_BY → INVESTS_IN(Derivative) → HAS_RISK"]
+    difficulty: hard
+
+  - id: MH3-09
+    query: "KOSPI 200 지수를 추적하는 ETF의 보유종목이 속한 섹터 분포는?"
+    expected_keywords: ["KOSPI", "섹터", "분포"]
+    hops: ["TRACKS → HOLDS → BELONGS_TO_SECTOR"]
+    difficulty: hard
+
+  - id: MH3-10
+    query: "미래에셋자산운용이 운용하는 배당형 ETF의 벤치마크 지수 구성종목은?"
+    expected_keywords: ["배당", "지수", "구성종목"]
+    hops: ["MANAGES → TRACKS → COMPONENT_OF"]
+    difficulty: hard
+
+# ---------------------------------------------------------------------------
+# Category 4: Aggregation (집계/비교) - 8문항
+# ---------------------------------------------------------------------------
+aggregation:
+  - id: AG-01
+    query: "미래에셋자산운용이 운용하는 채권형 ETF는 몇 개이며 어떤 것들이 있나요?"
+    expected_keywords: ["채권", "ETF"]
+    aggregation_type: count_and_list
+    difficulty: medium
+
+  - id: AG-02
+    query: "환율위험이 있는 ETF 상품들을 모두 나열해주세요."
+    expected_keywords: ["환율", "미국", "해외"]
+    aggregation_type: list_all
+    difficulty: medium
+
+  - id: AG-03
+    query: "TIGER ETF 상품들의 총보수를 비교했을 때 가장 비싼 상품과 가장 저렴한 상품은?"
+    expected_keywords: ["보수", "%", "ETF"]
+    aggregation_type: min_max
+    difficulty: medium
+
+  - id: AG-04
+    query: "섹터별로 TIGER ETF 상품이 몇 개씩 있나요?"
+    expected_keywords: ["섹터", "개"]
+    aggregation_type: group_count
+    difficulty: hard
+
+  - id: AG-05
+    query: "해외 투자 ETF와 국내 투자 ETF의 비율은 어떻게 되나요?"
+    expected_keywords: ["해외", "국내", "비율"]
+    aggregation_type: ratio
+    difficulty: hard
+
+  - id: AG-06
+    query: "분배금을 지급하는 TIGER ETF는 어떤 것들이 있나요?"
+    expected_keywords: ["분배금", "배당"]
+    aggregation_type: filter_list
+    difficulty: medium
+
+  - id: AG-07
+    query: "순자산총액(AUM) 기준 상위 5개 TIGER ETF는?"
+    expected_keywords: ["순자산", "AUM"]
+    aggregation_type: top_k
+    difficulty: medium
+
+  - id: AG-08
+    query: "2024년에 상장된 TIGER ETF 신규 상품은 어떤 것들이 있나요?"
+    expected_keywords: ["2024", "상장"]
+    aggregation_type: temporal_filter
+    difficulty: medium
+
+# ---------------------------------------------------------------------------
+# Category 5: Inference (추론) - 7문항
+# ---------------------------------------------------------------------------
+inference:
+  - id: IF-01
+    query: "미국 금리가 상승하면 영향을 받을 수 있는 TIGER ETF는 어떤 것들인가요?"
+    expected_keywords: ["채권", "미국", "금리"]
+    inference_type: causal
+    difficulty: hard
+
+  - id: IF-02
+    query: "환헤지를 하지 않는 해외 투자 ETF에 투자할 때의 위험요소는?"
+    expected_keywords: ["환율", "위험", "달러"]
+    inference_type: risk_analysis
+    difficulty: hard
+
+  - id: IF-03
+    query: "반도체 업황이 좋아지면 수혜를 받을 TIGER ETF 포트폴리오를 추천해주세요."
+    expected_keywords: ["반도체", "NVDA", "ETF"]
+    inference_type: recommendation
+    difficulty: hard
+
+  - id: IF-04
+    query: "보수적 투자자에게 적합한 TIGER ETF 상품을 추천해주세요."
+    expected_keywords: ["채권", "국채", "안정"]
+    inference_type: recommendation
+    difficulty: hard
+
+  - id: IF-05
+    query: "TIGER 미국S&P500 ETF와 TIGER 미국배당다우존스 ETF의 투자 전략 차이점은?"
+    expected_keywords: ["S&P", "배당", "차이", "전략"]
+    inference_type: comparison
+    difficulty: medium
+
+  - id: IF-06
+    query: "커버드콜 ETF와 일반 주식형 ETF의 장단점을 비교해주세요."
+    expected_keywords: ["커버드콜", "수익", "배당", "상승"]
+    inference_type: comparison
+    difficulty: hard
+
+  - id: IF-07
+    query: "TIGER ETF 상품 중 분산투자 효과가 가장 큰 상품은 어떤 것인가요?"
+    expected_keywords: ["분산", "보유종목", "다양"]
+    inference_type: analysis
+    difficulty: hard
+
+# ---------------------------------------------------------------------------
+# Category 6: Negative / Hallucination Detection - 5문항
+# ---------------------------------------------------------------------------
+negative:
+  - id: NG-01
+    query: "TIGER 비트코인 ETF의 수익률은 어떤가요?"
+    expected_answer: "해당 상품이 존재하지 않거나 정보를 찾을 수 없음을 명시"
+    check: should_not_hallucinate
+    difficulty: medium
+
+  - id: NG-02
+    query: "삼성자산운용이 운용하는 TIGER ETF는 어떤 것이 있나요?"
+    expected_answer: "TIGER는 미래에셋자산운용의 브랜드임을 명시"
+    check: should_correct_premise
+    difficulty: medium
+
+  - id: NG-03
+    query: "TIGER 미국S&P500 ETF의 2025년 12월 분배금은 얼마였나요?"
+    expected_answer: "해당 시점의 데이터가 없거나 확인 불가함을 명시"
+    check: should_not_fabricate_data
+    difficulty: medium
+
+  - id: NG-04
+    query: "TIGER ETF 상품의 원금 보장 여부를 알려주세요."
+    expected_answer: "ETF는 원금 보장 상품이 아님을 명시"
+    check: should_provide_accurate_disclaimer
+    difficulty: easy
+
+  - id: NG-05
+    query: "TIGER 유럽STOXX50 ETF의 투자 전략은 무엇인가요?"
+    expected_answer: "해당 상품 정보를 찾을 수 없음을 명시 (존재 여부 불확실)"
+    check: should_not_hallucinate
+    difficulty: medium

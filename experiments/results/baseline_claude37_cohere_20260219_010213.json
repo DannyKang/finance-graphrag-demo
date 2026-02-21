@@ -1,0 +1,71 @@
+{
+  "name": "baseline_claude37_cohere",
+  "description": "Baseline - Claude 3.7 Sonnet extraction + Cohere Embed Multilingual v3",
+  "config": {
+    "extraction_llm": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "response_llm": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "embedding_model": "cohere.embed-multilingual-v3",
+    "pdf_limit": 50
+  },
+  "started_at": "2026-02-19T01:01:12.585173",
+  "metrics": {
+    "total_nodes": 127201,
+    "total_edges": 748158,
+    "source_count": 998,
+    "node_distribution": {
+      "['__Source__']": 998,
+      "['__Chunk__']": 13850,
+      "['__Topic__']": 13869,
+      "['__Statement__']": 59015,
+      "['__Entity__']": 5001,
+      "['__Fact__']": 34433,
+      "['__SYS_Class__']": 35
+    },
+    "edge_distribution": {
+      "__EXTRACTED_FROM__": 13850,
+      "__NEXT__": 386118,
+      "__PREVIOUS__": 57670,
+      "__MENTIONED_IN__": 73262,
+      "__BELONGS_TO__": 59015,
+      "__SUPPORTS__": 107615,
+      "__SUBJECT__": 32946,
+      "__OBJECT__": 8264,
+      "__RELATION__": 8363,
+      "__SYS_RELATION__": 1055
+    }
+  },
+  "eval_results": [
+    {
+      "query": "TIGER 미국S&P500 ETF의 주요 보유종목과 비중은?",
+      "response": "Based on the search results provided, I cannot answer the question about TIGER 미국S&P500 ETF's major holdings and their weights. \n\nThe search results contain information about several other TIGER ETFs including:\n- TIGER 미국소비트렌드액티브 ETF\n- TIGER 코리아배당다우존스\n- TIGER 차이나AI소프트웨어\n- TIGER 미국배당다우존스타겟데일리커버드콜\n- TIGER 미국초단기(3개월이하)국채\n\nHowever, there is no specific information about TIGER 미국S&P500 ETF's holdings or their weights in the provided search results. The additional context mentions TIGER 미국S&P500 ETF, but the actual search results do not contain the relevant information needed to answer this question.",
+      "latency_seconds": 10.12,
+      "status": "success"
+    },
+    {
+      "query": "TIGER NVDA-UST 커버드콜 ETF의 투자위험은 무엇인가요?",
+      "response": "I'm unable to provide specific information about the investment risks of the TIGER NVDA-UST Covered Call ETF based on the search results provided. While the search results confirm that this product (미래에셋TIGERNVDA-UST커버드콜증권상장지수투자신탁(채권혼합-파생재간접형)(합성)) is an exchange-traded fund that uses a covered call strategy [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf], is classified as a bond-mixed derivative re-indirect investment type [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf], and is a derivative collective investment scheme according to Article 93 of the relevant law [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf], there is no specific information about the investment risks associated with this ETF in the provided search results.\n\nTo answer your question about the investment risks of this ETF, I would need additional information from the prospectus or other official documentation that specifically addresses risk factors.",
+      "latency_seconds": 10.79,
+      "status": "success"
+    },
+    {
+      "query": "미래에셋자산운용이 운용하는 채권형 ETF는 어떤 것이 있나요?",
+      "response": "검색 결과에 따르면, 미래에셋자산운용이 운용하는 채권형 ETF 중 하나로 미래에셋TIGERNVDA-UST커버드콜증권상장지수투자신탁(채권혼합-파생재간접형)(합성)이 있습니다. 이 ETF는 다음과 같은 특징을 가지고 있습니다:\n\n1. 증권집합투자기구이자 파생상품집합투자기구로 분류됩니다 [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf]\n\n2. 채권혼합-파생재간접형 투자신탁으로, 합성 ETF입니다 [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf]\n\n3. 금융투자협회 펀드코드는 EG521입니다 [Source: data/pdfs/KR70000D0009_rules_26c043c3.pdf]\n\n4. 커버드콜 전략을 사용하며, 포트폴리오에는 20년 이상 만기의 미국 채권이 포함됩니다 [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf]\n\n제공된 검색 결과에서는 미래에셋자산운용이 운용하는 다른 채권형 ETF에 대한 정보는 확인할 수 없습니다.",
+      "latency_seconds": 14.52,
+      "status": "success"
+    },
+    {
+      "query": "환율위험이 있는 ETF 상품들은?",
+      "response": "검색 결과를 바탕으로 환율위험이 있는 ETF 상품들에 대해 답변드리겠습니다.\n\n검색 결과에서 해외에 투자하는 ETF 상품들이 확인됩니다. 특히 미래에셋TIGER미국배당다우존스타겟데일리커버드콜증권상장지수투자신탁(주식)은 미국 시장에 투자하는 상장지수투자신탁으로, 해외 투자로 인한 환율위험에 노출될 수 있습니다 [Source: data/pdfs/KR70008S0004_prospectus_e9fcd92f.pdf].\n\n또한 미래에셋TIGER미국초단기(3개월이하)국채증권상장지수투자신탁(채권-재간접형)도 해외에 투자할 수 있는 집합투자기구로 명시되어 있으며, 미국 초단기 국채증권에 투자하는 상품입니다 [Source: data/pdfs/KR70046A0008_prospectus_11bf46f9.pdf]. 이 ETF 역시 미국 자산에 투자하므로 환율위험에 노출될 수 있습니다.\n\n검색 결과에서 확인된 또 다른 상품으로는 미래에셋TIGERNVDA-UST커버드콜증권상장지수투자신탁(채권혼합-파생재간접형)(합성)이 있으며, 이 상품은 미국 채권에 투자하는 커버드콜 전략을 사용하는 ETF로, 20년 이상 만기의 미국 채권을 기초자산으로 포함하고 있어 환율위험에 노출될 수 있습니다 [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf].",
+      "latency_seconds": 13.22,
+      "status": "success"
+    },
+    {
+      "query": "반도체 섹터에 투자하는 ETF는?",
+      "response": "검색 결과에서 반도체 섹터에 특화된 ETF로는 \"미래에셋TIGERNVDA-UST커버드콜증권상장지수투자신탁(채권혼합-파생재간접형)(합성)\"이 확인됩니다. 이 ETF는 NVDA(엔비디아)와 관련된 투자를 포함하고 있는 것으로 보입니다 [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf].\n\nETF(상장지수집합투자기구)는 일반적으로 특정 지수의 변화에 연동하거나 그 변화의 일정 배수를 추종하는 집합투자기구의 한 형태로, 증권시장에 상장되어 거래됩니다 [Source: data/pdfs/KR70067V0007_prospectus_7fd62d11.pdf]. \n\n이 ETF를 포함한 모든 집합투자증권을 매입하기 전에는 투자설명서를 읽어보는 것이 중요하며, 투자설명서 교부를 요청하면 매입 이전에 제공받을 수 있습니다 [Source: data/pdfs/KR70067V0007_simple_prospectus_0ea1f012.pdf] [Source: data/pdfs/KR70000D0009_prospectus_0506c0d9.pdf].",
+      "latency_seconds": 11.11,
+      "status": "success"
+    }
+  ],
+  "avg_query_latency_seconds": 11.95,
+  "completed_at": "2026-02-19T01:02:13.860185"
+}

@@ -342,5 +342,149 @@ def graphrag_status() -> None:
         console.print(f"[red]Error connecting to Neo4j: {e}[/red]")
 
 
+# --- experiment commands ---
+
+
+@cli.group()
+def experiment() -> None:
+    """Experiment framework with isolated Docker containers per experiment."""
+
+
+@experiment.command("list")
+def experiment_list() -> None:
+    """List configs, running containers, volumes, and completed results."""
+    from tiger_etf.graphrag.experiment import (
+        get_active_experiment,
+        list_configs,
+        list_experiment_volumes,
+        list_results,
+    )
+
+    # Configs
+    configs = list_configs()
+    table = Table(title="Experiment Configs")
+    table.add_column("Config Name", style="cyan")
+    for c in configs:
+        table.add_row(c)
+    console.print(table)
+
+    # Active experiment
+    active = get_active_experiment()
+    console.print(f"\n[bold]Active experiment:[/bold] {active or '(none)'}")
+
+    # Volumes (preserved data)
+    vols = list_experiment_volumes()
+    if vols:
+        vol_table = Table(title="Experiment Volumes (preserved data)")
+        vol_table.add_column("Experiment", style="cyan")
+        vol_table.add_column("Neo4j Volume")
+        vol_table.add_column("PG Volume")
+        for v in vols:
+            vol_table.add_row(v["name"], v.get("neo4j", "-"), v.get("pg", "-"))
+        console.print(vol_table)
+
+    # Results
+    results = list_results()
+    if results:
+        res_table = Table(title="Completed Experiments")
+        res_table.add_column("Name", style="cyan")
+        res_table.add_column("LLM", style="yellow")
+        res_table.add_column("Embedding", style="yellow")
+        res_table.add_column("Nodes", justify="right", style="green")
+        res_table.add_column("Edges", justify="right", style="green")
+        res_table.add_column("Duration", justify="right")
+        for r in results:
+            res_table.add_row(
+                r["name"],
+                r["extraction_llm"].split(".")[-1][:30],
+                r["embedding_model"].split(".")[-1][:20],
+                f"{r['total_nodes']:,}",
+                f"{r['total_edges']:,}",
+                f"{r['duration_min']:.1f}m",
+            )
+        console.print(res_table)
+
+
+@experiment.command("switch")
+@click.argument("experiment_name")
+def experiment_switch(experiment_name: str) -> None:
+    """Switch to an experiment's Docker containers (preserves all data)."""
+    from tiger_etf.graphrag.experiment import start_experiment_containers
+
+    console.print(f"[bold]Switching to: {experiment_name}[/bold]")
+    start_experiment_containers(experiment_name)
+    console.print(f"[green]Now active: {experiment_name}[/green]")
+
+
+@experiment.command("run")
+@click.argument("config_name")
+@click.option("--skip-indexing", is_flag=True, help="Skip indexing, only collect metrics.")
+def experiment_run(config_name: str, skip_indexing: bool) -> None:
+    """Run an experiment: switch containers -> index -> metrics -> eval."""
+    from tiger_etf.graphrag.experiment import run_experiment
+
+    console.print(f"[bold]Running experiment: {config_name}[/bold]")
+    result = run_experiment(config_name, skip_indexing=skip_indexing)
+
+    console.print(f"\n[green bold]Complete: {result['name']}[/green bold]")
+    console.print(f"  Nodes: {result['metrics']['total_nodes']:,}")
+    console.print(f"  Edges: {result['metrics']['total_edges']:,}")
+    if "duration_minutes" in result:
+        console.print(f"  Duration: {result['duration_minutes']:.1f} min")
+    console.print(f"  Avg query latency: {result['avg_query_latency_seconds']:.2f}s")
+
+
+@experiment.command("compare")
+@click.argument("names", nargs=-1)
+def experiment_compare(names: tuple[str, ...]) -> None:
+    """Compare experiment results. Pass names or leave empty for all."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    results_dir = _Path(__file__).resolve().parents[2] / "experiments" / "results"
+    results = []
+    for f in sorted(results_dir.glob("*.json")):
+        with open(f) as fp:
+            data = _json.load(fp)
+        if not names or any(n in data.get("name", "") for n in names):
+            results.append(data)
+
+    if not results:
+        console.print("[red]No matching results found.[/red]")
+        return
+
+    table = Table(title="Experiment Comparison")
+    table.add_column("Experiment", style="cyan")
+    table.add_column("Extraction LLM", style="yellow")
+    table.add_column("Embedding", style="yellow")
+    table.add_column("Nodes", justify="right", style="green")
+    table.add_column("Edges", justify="right", style="green")
+    table.add_column("Duration", justify="right")
+    table.add_column("Latency", justify="right")
+
+    for r in results:
+        cfg = r.get("config", {})
+        m = r.get("metrics", {})
+        table.add_row(
+            r.get("name", "?"),
+            cfg.get("extraction_llm", "?").split(".")[-1][:35],
+            cfg.get("embedding_model", "?").split(".")[-1][:20],
+            f"{m.get('total_nodes', 0):,}",
+            f"{m.get('total_edges', 0):,}",
+            f"{r.get('duration_minutes', 0):.1f}m",
+            f"{r.get('avg_query_latency_seconds', 0):.2f}s",
+        )
+    console.print(table)
+
+
+@experiment.command("stop")
+def experiment_stop() -> None:
+    """Stop all running experiment containers."""
+    from tiger_etf.graphrag.experiment import stop_all_experiments
+
+    stop_all_experiments()
+    console.print("[green]All experiment containers stopped.[/green]")
+
+
 if __name__ == "__main__":
     cli()
