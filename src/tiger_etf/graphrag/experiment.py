@@ -85,12 +85,31 @@ def collect_metrics() -> dict[str, Any]:
     }
 
 
-def run_eval_queries(config: dict[str, Any]) -> list[dict[str, Any]]:
+def run_eval_queries(
+    config: dict[str, Any],
+    eval_questions_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Run evaluation queries from eval_questions.yaml (or config fallback).
+
+    If eval_questions_path is provided and exists, all questions from the YAML
+    are used.  Otherwise falls back to ``config["eval_queries"]``.
+    """
+    from tiger_etf.graphrag.evaluator import load_eval_questions
     from tiger_etf.graphrag.query import query
 
+    # Determine question list
+    questions: list[str] = []
+    if eval_questions_path and eval_questions_path.exists():
+        eq_list = load_eval_questions(eval_questions_path)
+        questions = [eq.question for eq in eq_list]
+        logger.info("Loaded %d eval questions from %s", len(questions), eval_questions_path)
+    else:
+        questions = config.get("eval_queries", [])
+        logger.info("Using %d eval queries from experiment config", len(questions))
+
     results = []
-    for q in config.get("eval_queries", []):
-        logger.info("Eval query: %s", q)
+    for idx, q in enumerate(questions, 1):
+        logger.info("[%d/%d] Eval query: %s", idx, len(questions), q)
         start = time.time()
         try:
             response = query(q)
@@ -117,7 +136,12 @@ def run_eval_queries(config: dict[str, Any]) -> list[dict[str, Any]]:
 # Experiment runner
 # ---------------------------------------------------------------------------
 
-def run_experiment(config_name: str, skip_indexing: bool = False) -> dict[str, Any]:
+def run_experiment(
+    config_name: str,
+    skip_indexing: bool = False,
+    use_llm_judge: bool = True,
+    eval_questions_path: Path | None = None,
+) -> dict[str, Any]:
     """Run a full experiment.
 
     Flow:
@@ -125,8 +149,18 @@ def run_experiment(config_name: str, skip_indexing: bool = False) -> dict[str, A
       2. Run indexing (unless skip_indexing)
       3. Collect graph metrics
       4. Run evaluation queries
-      5. Save results JSON
+      5. Run evaluation scoring
+      6. Save results JSON
     """
+    from tiger_etf.graphrag.evaluator import (
+        EVAL_QUESTIONS_PATH,
+        format_eval_report,
+        load_eval_questions,
+        report_to_dict,
+        run_evaluation,
+    )
+
+    eval_path = eval_questions_path or EVAL_QUESTIONS_PATH
     config = load_experiment_config(config_name)
     exp_name = config["name"]
     logger.info("=== Experiment: %s ===", exp_name)
@@ -169,7 +203,7 @@ def run_experiment(config_name: str, skip_indexing: bool = False) -> dict[str, A
 
     # Step 4: Eval queries
     logger.info("Step 3: Running eval queries...")
-    result["eval_results"] = run_eval_queries(config)
+    result["eval_results"] = run_eval_queries(config, eval_questions_path=eval_path)
 
     successful = [r for r in result["eval_results"] if r["status"] == "success"]
     avg_latency = (
@@ -177,6 +211,24 @@ def run_experiment(config_name: str, skip_indexing: bool = False) -> dict[str, A
         if successful else 0
     )
     result["avg_query_latency_seconds"] = round(avg_latency, 2)
+
+    # Step 5: Evaluation scoring
+    logger.info("Step 4: Running evaluation scoring (llm_judge=%s)...", use_llm_judge)
+    try:
+        eq_list = load_eval_questions(eval_path)
+        eval_report = run_evaluation(
+            eval_results=result["eval_results"],
+            eval_questions=eq_list,
+            use_llm_judge=use_llm_judge,
+        )
+        result["evaluation"] = report_to_dict(eval_report)
+        logger.info("Overall score: %.3f", eval_report.overall_score)
+        logger.info("\n%s", format_eval_report(eval_report))
+    except FileNotFoundError:
+        logger.warning("eval_questions.yaml not found — skipping evaluation scoring")
+    except Exception as e:
+        logger.warning("Evaluation scoring failed: %s", e)
+
     result["completed_at"] = datetime.now().isoformat()
 
     # Save

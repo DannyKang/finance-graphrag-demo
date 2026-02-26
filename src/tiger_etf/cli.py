@@ -424,12 +424,17 @@ def experiment_list() -> None:
 @experiment.command("run")
 @click.argument("config_name")
 @click.option("--skip-indexing", is_flag=True, help="Skip indexing, only collect metrics.")
-def experiment_run(config_name: str, skip_indexing: bool) -> None:
+@click.option("--no-llm-judge", is_flag=True, help="Skip LLM-as-Judge scoring (keyword metrics only).")
+def experiment_run(config_name: str, skip_indexing: bool, no_llm_judge: bool) -> None:
     """Run an experiment: configure -> index -> metrics -> eval."""
     from tiger_etf.graphrag.experiment import run_experiment
 
     console.print(f"[bold]Running experiment: {config_name}[/bold]")
-    result = run_experiment(config_name, skip_indexing=skip_indexing)
+    result = run_experiment(
+        config_name,
+        skip_indexing=skip_indexing,
+        use_llm_judge=not no_llm_judge,
+    )
 
     console.print(f"\n[green bold]Complete: {result['name']}[/green bold]")
     console.print(f"  Nodes: {result['metrics']['total_nodes']:,}")
@@ -437,6 +442,18 @@ def experiment_run(config_name: str, skip_indexing: bool) -> None:
     if "duration_minutes" in result:
         console.print(f"  Duration: {result['duration_minutes']:.1f} min")
     console.print(f"  Avg query latency: {result['avg_query_latency_seconds']:.2f}s")
+
+    # Show evaluation scores if available
+    if "evaluation" in result:
+        ev = result["evaluation"]
+        console.print(f"  Overall score: {ev['overall_score']:.3f}")
+        console.print(f"  Keyword hit rate: {ev['keyword_hit_rate']:.1%}")
+        console.print(f"  Keyword coverage: {ev['keyword_coverage']:.1%}")
+        if ev.get("llm_judge", {}).get("avg_correctness", 0) > 0:
+            lj = ev["llm_judge"]
+            console.print(f"  Correctness: {lj['avg_correctness']:.2f}/5")
+            console.print(f"  Faithfulness: {lj['avg_faithfulness']:.2f}/5")
+            console.print(f"  Completeness: {lj['avg_completeness']:.2f}/5")
 
 
 @experiment.command("compare")
@@ -466,10 +483,15 @@ def experiment_compare(names: tuple[str, ...]) -> None:
     table.add_column("Edges", justify="right", style="green")
     table.add_column("Duration", justify="right")
     table.add_column("Latency", justify="right")
+    table.add_column("Score", justify="right", style="bold green")
+    table.add_column("KW Hit", justify="right")
+    table.add_column("Correct", justify="right")
 
     for r in results:
         cfg = r.get("config", {})
         m = r.get("metrics", {})
+        ev = r.get("evaluation", {})
+        lj = ev.get("llm_judge", {})
         table.add_row(
             r.get("name", "?"),
             cfg.get("extraction_llm", "?").split(".")[-1][:35],
@@ -478,6 +500,9 @@ def experiment_compare(names: tuple[str, ...]) -> None:
             f"{m.get('total_edges', 0):,}",
             f"{r.get('duration_minutes', 0):.1f}m",
             f"{r.get('avg_query_latency_seconds', 0):.2f}s",
+            f"{ev.get('overall_score', 0):.3f}" if ev else "-",
+            f"{ev.get('keyword_hit_rate', 0):.0%}" if ev else "-",
+            f"{lj.get('avg_correctness', 0):.1f}" if lj else "-",
         )
     console.print(table)
 
