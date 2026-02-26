@@ -2,7 +2,6 @@
 
 TIGER ETF 221종의 상품 데이터를 **AWS GraphRAG Toolkit + Neptune DB + OpenSearch Serverless + Aurora PostgreSQL**로 구축한 실제 사례입니다.
 
-> 소스코드: `/home/ec2-user/mirae-graphrag/aos-neptune`
 
 ## 4.1 시스템 구성
 
