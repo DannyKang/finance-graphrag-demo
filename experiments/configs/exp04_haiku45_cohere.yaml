@@ -1,11 +1,11 @@
-# Experiment 04: Claude Haiku 4.5 + Cohere Embed Multilingual v3
+# Experiment 04: Claude Haiku 4.5 + Amazon Titan Embed Text v2
 # Compare cost-effective LLM (faster, cheaper) extraction quality
-name: exp04_haiku45_cohere
-description: "Claude Haiku 4.5 extraction (cost-effective) + Cohere Embed Multilingual v3"
+name: exp04_haiku45_titan
+description: "Claude Haiku 4.5 extraction (cost-effective) + Amazon Titan Embed Text v2"
 
 extraction_llm: us.anthropic.claude-haiku-4-5-20250514-v1:0
 response_llm: us.anthropic.claude-haiku-4-5-20250514-v1:0
-embedding_model: cohere.embed-multilingual-v3
+embedding_model: amazon.titan-embed-text-v2:0
 
 pdf_limit: 50
 extraction_num_workers: 1

@@ -11,9 +11,11 @@ data/logs/
 *.egg
 
 # Docker volumes & logs
-docker/graphrag/neo4j_data/
-docker/graphrag/graphrag_pg_data/
 docker/graphrag/data/
+docker/graphrag/etf_pg_data/
+
+# SSL certs
+certs/
 
 # GraphRAG cache
 cache/

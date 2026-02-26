@@ -1,10 +1,10 @@
-# Experiment 02: Claude Sonnet 4 + Cohere Embed Multilingual v3
-name: exp02_claude4_cohere
-description: "Claude Sonnet 4 extraction + Cohere Embed Multilingual v3"
+# Experiment 02: Claude Sonnet 4 + Amazon Titan Embed Text v2
+name: exp02_claude4_titan
+description: "Claude Sonnet 4 extraction + Amazon Titan Embed Text v2"
 
 extraction_llm: us.anthropic.claude-sonnet-4-20250514-v1:0
 response_llm: us.anthropic.claude-sonnet-4-20250514-v1:0
-embedding_model: cohere.embed-multilingual-v3
+embedding_model: amazon.titan-embed-text-v2:0
 
 pdf_limit: 50
 extraction_num_workers: 1

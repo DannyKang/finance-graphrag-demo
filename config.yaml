@@ -1,0 +1,30 @@
+# =============================================================================
+# mirae-graphrag 설정 파일
+# 환경변수로 오버라이드 가능 (예: GRAPH_STORE=neptune-db://xxx)
+# =============================================================================
+
+# --- 인프라 엔드포인트 ---
+# graph_store, graph_store_reader, vector_store, database_url 등
+# 엔드포인트 값은 .env 파일에서 관리합니다 (이 파일에 포함하지 않음).
+
+# --- GraphRAG LLM 설정 (AWS Bedrock 모델 ID) ---
+graphrag:
+  extraction_llm: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+  response_llm: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+  embedding_model: "amazon.titan-embed-text-v2:0"
+  aws_region: "ap-northeast-2"
+  extraction_num_workers: 1
+  extraction_num_threads_per_worker: 8
+  build_num_workers: 2
+  batch_writes_enabled: true
+  enable_cache: true
+
+# --- 스크레이퍼 ---
+scraper:
+  base_url: "https://investments.miraeasset.com/tigeretf"
+  request_delay: 1.0
+  max_retries: 3
+
+# --- 일반 ---
+log_level: "INFO"
+data_dir: "./data"

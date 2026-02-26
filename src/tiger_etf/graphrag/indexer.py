@@ -200,26 +200,28 @@ def _configure() -> None:
     """Set GraphRAGConfig before creating stores."""
     from graphrag_toolkit.lexical_graph import GraphRAGConfig
 
-    GraphRAGConfig.aws_region = "us-east-1"
+    GraphRAGConfig.aws_region = settings.graphrag_aws_region
     GraphRAGConfig.extraction_llm = settings.graphrag_extraction_llm
     GraphRAGConfig.response_llm = settings.graphrag_response_llm
-    GraphRAGConfig.embedding_model = settings.graphrag_embedding_model
-    GraphRAGConfig.enable_cache = True
-    GraphRAGConfig.extraction_num_workers = 1
-    GraphRAGConfig.extraction_num_threads_per_worker = 8
+    GraphRAGConfig.embed_model = settings.graphrag_embedding_model
+    GraphRAGConfig.enable_cache = settings.graphrag_enable_cache
+    GraphRAGConfig.extraction_num_workers = settings.graphrag_extraction_num_workers
+    GraphRAGConfig.extraction_num_threads_per_worker = settings.graphrag_extraction_num_threads_per_worker
+    # Neptune DB: configurable via config.yaml graphrag.build_num_workers / batch_writes_enabled
+    GraphRAGConfig.build_num_workers = settings.graphrag_build_num_workers
+    GraphRAGConfig.batch_writes_enabled = settings.graphrag_batch_writes_enabled
 
 
 def _make_stores():
-    """Create graph and vector store instances."""
+    """Create graph and vector store instances.
+
+    Neptune and OpenSearch are auto-detected by graphrag_toolkit via
+    connection string prefix (neptune-graph://, aoss://, etc.).
+    """
     from graphrag_toolkit.lexical_graph.storage import (
         GraphStoreFactory,
         VectorStoreFactory,
     )
-    from graphrag_toolkit.lexical_graph.storage.graph.neo4j_graph_store_factory import (
-        Neo4jGraphStoreFactory,
-    )
-
-    GraphStoreFactory.register(Neo4jGraphStoreFactory)
 
     graph_store = GraphStoreFactory.for_graph_store(settings.graph_store)
     vector_store = VectorStoreFactory.for_vector_store(settings.vector_store)
@@ -275,6 +277,129 @@ def build_from_rdb(limit: Optional[int] = None) -> None:
         logger.warning("No RDB documents found.")
         return
     build_index(docs)
+
+
+def reset_graph() -> int:
+    """Delete all nodes and edges from Neptune graph store.
+
+    Returns the number of deleted nodes.
+    """
+    import boto3
+
+    from tiger_etf.graphrag.query import _extract_region_from_endpoint, _parse_graph_store_uri
+
+    store_type, identifier = _parse_graph_store_uri(settings.graph_store)
+    region = _extract_region_from_endpoint(identifier)
+    session = boto3.Session(region_name=region)
+
+    if store_type == "database":
+        client = session.client(
+            "neptunedata",
+            endpoint_url=f"https://{identifier}:8182",
+        )
+        # Count before delete
+        count_result = client.execute_open_cypher_query(
+            openCypherQuery="MATCH (n) RETURN count(n) AS cnt",
+        )
+        total = count_result["results"][0]["cnt"] if count_result["results"] else 0
+
+        # Delete in batches to avoid timeout on large graphs
+        deleted = 0
+        batch_size = 10000
+        while True:
+            result = client.execute_open_cypher_query(
+                openCypherQuery=f"MATCH (n) WITH n LIMIT {batch_size} DETACH DELETE n RETURN count(*) AS cnt",
+            )
+            cnt = result["results"][0]["cnt"] if result["results"] else 0
+            deleted += cnt
+            logger.info("Deleted %d nodes (total: %d)", cnt, deleted)
+            if cnt < batch_size:
+                break
+
+        logger.info("Graph reset complete. Deleted %d nodes total.", deleted)
+        return total
+    else:
+        # Neptune Analytics
+        client = session.client("neptune-graph")
+        count_resp = client.execute_query(
+            graphIdentifier=identifier,
+            queryString="MATCH (n) RETURN count(n) AS cnt",
+            parameters={},
+            language="OPEN_CYPHER",
+            planCache="DISABLED",
+        )
+        import json
+        results = json.loads(count_resp["payload"].read())["results"]
+        total = results[0]["cnt"] if results else 0
+
+        client.execute_query(
+            graphIdentifier=identifier,
+            queryString="MATCH (n) DETACH DELETE n",
+            parameters={},
+            language="OPEN_CYPHER",
+            planCache="DISABLED",
+        )
+        logger.info("Graph reset complete. Deleted %d nodes.", total)
+        return total
+
+
+def reset_vector() -> int:
+    """Delete the vector index from OpenSearch Serverless.
+
+    Returns the number of documents that were in the index.
+    """
+    import boto3
+    from opensearchpy import (
+        OpenSearch,
+        RequestsAWSV4SignerAuth,
+        RequestsHttpConnection,
+    )
+
+    endpoint = settings.vector_store.rstrip("/")
+    # Extract region from endpoint (e.g., https://xxx.ap-northeast-2.aoss.amazonaws.com)
+    parts = endpoint.replace("https://", "").split(".")
+    region = settings.graphrag_aws_region
+    for i, p in enumerate(parts):
+        if p == "aoss":
+            region = parts[i - 1]
+            break
+
+    session = boto3.Session(region_name=region)
+    credentials = session.get_credentials()
+    auth = RequestsAWSV4SignerAuth(credentials, region, "aoss")
+
+    host = endpoint.replace("https://", "")
+    client = OpenSearch(
+        hosts=[{"host": host, "port": 443}],
+        http_auth=auth,
+        use_ssl=True,
+        verify_certs=True,
+        connection_class=RequestsHttpConnection,
+    )
+
+    deleted_total = 0
+    for index_name in ["chunk", "statement"]:
+        try:
+            count_resp = client.count(index=index_name)
+            count = count_resp.get("count", 0)
+            client.indices.delete(index=index_name)
+            deleted_total += count
+            logger.info("Deleted vector index '%s' (%d documents).", index_name, count)
+        except Exception as e:
+            if "index_not_found" in str(e).lower() or "404" in str(e):
+                logger.info("Vector index '%s' does not exist, skipping.", index_name)
+            else:
+                raise
+
+    logger.info("Vector reset complete. Deleted %d documents total.", deleted_total)
+    return deleted_total
+
+
+def reset_all() -> dict:
+    """Reset both graph and vector stores. Returns counts."""
+    graph_count = reset_graph()
+    vector_count = reset_vector()
+    return {"graph_nodes_deleted": graph_count, "vector_docs_deleted": vector_count}
 
 
 def build_all(pdf_limit: Optional[int] = None, rdb_limit: Optional[int] = None) -> None:

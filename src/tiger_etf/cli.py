@@ -316,9 +316,42 @@ def graphrag_query(question: str) -> None:
     console.print(response)
 
 
+@graphrag.command("reset")
+@click.option("--graph-only", is_flag=True, help="Only reset graph store (Neptune).")
+@click.option("--vector-only", is_flag=True, help="Only reset vector store (OpenSearch).")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.")
+def graphrag_reset(graph_only: bool, vector_only: bool, yes: bool) -> None:
+    """Delete all data from graph and vector stores."""
+    from tiger_etf.graphrag.indexer import reset_all, reset_graph, reset_vector
+
+    if not yes:
+        if graph_only:
+            target = "graph store (Neptune)"
+        elif vector_only:
+            target = "vector store (OpenSearch)"
+        else:
+            target = "graph store (Neptune) and vector store (OpenSearch)"
+        if not click.confirm(f"This will delete ALL data from {target}. Continue?"):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    if graph_only:
+        console.print("[bold]Resetting graph store...[/bold]")
+        count = reset_graph()
+        console.print(f"[green]Graph reset complete. {count} nodes deleted.[/green]")
+    elif vector_only:
+        console.print("[bold]Resetting vector store...[/bold]")
+        count = reset_vector()
+        console.print(f"[green]Vector reset complete. {count} documents deleted.[/green]")
+    else:
+        console.print("[bold]Resetting graph and vector stores...[/bold]")
+        result = reset_all()
+        console.print(f"[green]Reset complete. Graph: {result['graph_nodes_deleted']} nodes, Vector: {result['vector_docs_deleted']} documents deleted.[/green]")
+
+
 @graphrag.command("status")
 def graphrag_status() -> None:
-    """Show Neo4j graph statistics (node/edge counts)."""
+    """Show Neptune graph statistics (node/edge counts)."""
     from tiger_etf.graphrag.query import get_graph_stats
 
     console.print("[bold]GraphRAG Store Status[/bold]\n")
@@ -339,7 +372,7 @@ def graphrag_status() -> None:
             edge_table.add_row(etype, str(cnt))
         console.print(edge_table)
     except Exception as e:
-        console.print(f"[red]Error connecting to Neo4j: {e}[/red]")
+        console.print(f"[red]Error connecting to Neptune: {e}[/red]")
 
 
 # --- experiment commands ---
@@ -347,16 +380,14 @@ def graphrag_status() -> None:
 
 @cli.group()
 def experiment() -> None:
-    """Experiment framework with isolated Docker containers per experiment."""
+    """Experiment framework for comparing GraphRAG configurations."""
 
 
 @experiment.command("list")
 def experiment_list() -> None:
-    """List configs, running containers, volumes, and completed results."""
+    """List experiment configs and completed results."""
     from tiger_etf.graphrag.experiment import (
-        get_active_experiment,
         list_configs,
-        list_experiment_volumes,
         list_results,
     )
 
@@ -367,21 +398,6 @@ def experiment_list() -> None:
     for c in configs:
         table.add_row(c)
     console.print(table)
-
-    # Active experiment
-    active = get_active_experiment()
-    console.print(f"\n[bold]Active experiment:[/bold] {active or '(none)'}")
-
-    # Volumes (preserved data)
-    vols = list_experiment_volumes()
-    if vols:
-        vol_table = Table(title="Experiment Volumes (preserved data)")
-        vol_table.add_column("Experiment", style="cyan")
-        vol_table.add_column("Neo4j Volume")
-        vol_table.add_column("PG Volume")
-        for v in vols:
-            vol_table.add_row(v["name"], v.get("neo4j", "-"), v.get("pg", "-"))
-        console.print(vol_table)
 
     # Results
     results = list_results()
@@ -405,22 +421,11 @@ def experiment_list() -> None:
         console.print(res_table)
 
 
-@experiment.command("switch")
-@click.argument("experiment_name")
-def experiment_switch(experiment_name: str) -> None:
-    """Switch to an experiment's Docker containers (preserves all data)."""
-    from tiger_etf.graphrag.experiment import start_experiment_containers
-
-    console.print(f"[bold]Switching to: {experiment_name}[/bold]")
-    start_experiment_containers(experiment_name)
-    console.print(f"[green]Now active: {experiment_name}[/green]")
-
-
 @experiment.command("run")
 @click.argument("config_name")
 @click.option("--skip-indexing", is_flag=True, help="Skip indexing, only collect metrics.")
 def experiment_run(config_name: str, skip_indexing: bool) -> None:
-    """Run an experiment: switch containers -> index -> metrics -> eval."""
+    """Run an experiment: configure -> index -> metrics -> eval."""
     from tiger_etf.graphrag.experiment import run_experiment
 
     console.print(f"[bold]Running experiment: {config_name}[/bold]")
@@ -475,15 +480,6 @@ def experiment_compare(names: tuple[str, ...]) -> None:
             f"{r.get('avg_query_latency_seconds', 0):.2f}s",
         )
     console.print(table)
-
-
-@experiment.command("stop")
-def experiment_stop() -> None:
-    """Stop all running experiment containers."""
-    from tiger_etf.graphrag.experiment import stop_all_experiments
-
-    stop_all_experiments()
-    console.print("[green]All experiment containers stopped.[/green]")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
-# Baseline: Claude 3.7 Sonnet + Cohere Embed Multilingual v3
+# Baseline: Claude 3.7 Sonnet + Amazon Titan Embed Text v2
 # 50 PDFs, ETF domain ontology, single worker
-name: baseline_claude37_cohere
-description: "Baseline - Claude 3.7 Sonnet extraction + Cohere Embed Multilingual v3"
+name: baseline_claude37_titan
+description: "Baseline - Claude 3.7 Sonnet extraction + Amazon Titan Embed Text v2"
 
 # Model configuration
 extraction_llm: us.anthropic.claude-3-7-sonnet-20250219-v1:0
 response_llm: us.anthropic.claude-3-7-sonnet-20250219-v1:0
-embedding_model: cohere.embed-multilingual-v3
+embedding_model: amazon.titan-embed-text-v2:0
 
 # Indexing parameters
 pdf_limit: 50

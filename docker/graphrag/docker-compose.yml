@@ -1,36 +1,18 @@
+# GraphRAG local development support services
+# Graph DB (Neptune) and Vector DB (OpenSearch Serverless) are AWS managed services.
+# This compose file only provides the ETF metadata RDB for local development.
+
 services:
-  neo4j:
-    image: neo4j:5-community
+  etf-postgres:
+    image: postgres:16
     ports:
-      - "7476:7474"    # HTTP
-      - "7689:7687"    # Bolt
+      - "5432:5432"
     environment:
-      NEO4J_AUTH: neo4j/password
-      NEO4J_PLUGINS: '["apoc"]'
+      POSTGRES_USER: mirae
+      POSTGRES_PASSWORD: mirae123
+      POSTGRES_DB: mirae_etf
     volumes:
-      - neo4j_data:/data
-
-  graphrag-postgres:
-    image: pgvector/pgvector:pg16
-    ports:
-      - "5433:5432"    # 기존 ETF DB(5432)와 충돌 방지
-    environment:
-      POSTGRES_USER: graphrag
-      POSTGRES_PASSWORD: graphragpass
-      POSTGRES_DB: graphrag_db
-    volumes:
-      - graphrag_pg_data:/var/lib/postgresql/data
-
-  neodash:
-    image: neo4jlabs/neodash:latest
-    ports:
-      - "5005:5005"
-    environment:
-      ssoEnabled: "false"
-      standalone: "false"
-    depends_on:
-      - neo4j
+      - etf_pg_data:/var/lib/postgresql/data
 
 volumes:
-  neo4j_data:
-  graphrag_pg_data:
+  etf_pg_data:

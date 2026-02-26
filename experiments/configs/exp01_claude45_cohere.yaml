@@ -1,11 +1,11 @@
-# Experiment 01: Claude Sonnet 4.5 + Cohere Embed Multilingual v3
+# Experiment 01: Claude Sonnet 4.5 + Amazon Titan Embed Text v2
 # Compare extraction quality with newer LLM
-name: exp01_claude45_cohere
-description: "Claude Sonnet 4.5 extraction + Cohere Embed Multilingual v3"
+name: exp01_claude45_titan
+description: "Claude Sonnet 4.5 extraction + Amazon Titan Embed Text v2"
 
 extraction_llm: us.anthropic.claude-sonnet-4-5-20250514-v1:0
 response_llm: us.anthropic.claude-sonnet-4-5-20250514-v1:0
-embedding_model: cohere.embed-multilingual-v3
+embedding_model: amazon.titan-embed-text-v2:0
 
 pdf_limit: 50
 extraction_num_workers: 1
