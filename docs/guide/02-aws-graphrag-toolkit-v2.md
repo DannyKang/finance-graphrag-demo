@@ -136,6 +136,8 @@ Statement: "TIGER 미국S&P500 ETF는 S&P 500 지수를 추적하며 미국 대�
 
 ![Extract & Build Pipeline](./images/extract-and-build.png)
 
+![Extract & Build Pipeline](./images/graph-toolkit.png)
+
 ### Extract 단계 (3단계 프로세스)
 
 ```

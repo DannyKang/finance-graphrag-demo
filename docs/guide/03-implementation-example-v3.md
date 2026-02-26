@@ -6,6 +6,9 @@ TIGER ETF 221종의 상품 데이터를 **AWS GraphRAG Toolkit + Neptune DB + Op
 
 ## 4.1 시스템 구성
 
+![](images/mirae-asset-architecture.png)
+
+
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        데이터 소스                                    │
@@ -344,7 +347,7 @@ Chunk 입력: "이 투자신탁은 S&P 500 Price Return Index를 기초지수로
 ```text
 topic: TIGER 미국S&P500 투자 구조
 
-  entities:
+  entities(|class):
     TIGER 미국S&P500|ETF
     미래에셋자산운용|Asset Management Company
     S&P 500|Index
