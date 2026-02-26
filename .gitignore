@@ -11,11 +11,9 @@ data/logs/
 *.egg
 
 # Docker volumes & logs
+docker/graphrag/neo4j_data/
+docker/graphrag/graphrag_pg_data/
 docker/graphrag/data/
-docker/graphrag/etf_pg_data/
-
-# SSL certs
-certs/
 
 # GraphRAG cache
 cache/
@@ -24,5 +22,14 @@ cache/
 .vscode/
 .idea/
 
+# experiments
+#experiments/
+
 # Claude Code
 .claude/
+CLAUDE.md
+PLAN.md
+ANALYSIS.md
+PROGRESS.md
+pland.md
+
