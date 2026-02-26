@@ -8,8 +8,7 @@
 
 ## 현재 스택
 - RDB: Aurora PostgreSQL
-- Vector DB: AWS OpenSearch Serverless (`aoss://` 연결 문자열)
-- Graph DB: AWS Neptune (`neptune-graph://` 또는 `neptune-db://` 연결 문자열)
+- Graph + Vector DB: AWS Neptune Analytics (`neptune-graph://` 연결 문자열, graph와 vector 통합)
 - Entity Extraction LLM: config.yaml의 `graphrag.extraction_llm`으로 관리
 - Embedding: Amazon Titan Embed Text v2 (Amazon Bedrock)
 - GraphRAG 프레임워크: AWS graphrag-toolkit-lexical-graph v3.16.1

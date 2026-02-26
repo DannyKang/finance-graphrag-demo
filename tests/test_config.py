@@ -23,7 +23,7 @@ class TestYamlSettingsSource:
 
         config_path = _write_yaml(tmp_path, {
             "graph_store": "neptune-graph://test-graph-id",
-            "vector_store": "aoss://test-endpoint",
+            "vector_store": "neptune-graph://test-graph-id",
         })
 
         with patch("tiger_etf.config._find_config_yaml", return_value=config_path):
@@ -31,7 +31,7 @@ class TestYamlSettingsSource:
             data = source()
 
         assert data["graph_store"] == "neptune-graph://test-graph-id"
-        assert data["vector_store"] == "aoss://test-endpoint"
+        assert data["vector_store"] == "neptune-graph://test-graph-id"
 
     def test_flattens_graphrag_section(self, tmp_path):
         from tiger_etf.config import YamlSettingsSource, Settings
@@ -124,24 +124,31 @@ class TestSettingsPriority:
         assert s.graph_store == "neptune-graph://from-yaml"
 
 
-class TestSettingsWithDotEnv:
-    def test_current_env_has_neptune(self):
-        """The current .env file should have Neptune/OpenSearch values."""
+class TestNeptuneAnalyticsSettings:
+    def test_neptune_analytics_graph_and_vector(self):
+        """Neptune Analytics should be used for both graph and vector stores."""
         from tiger_etf.config import Settings
 
-        # Use a dummy yaml to avoid config.yaml interference
+        env = {
+            "GRAPH_STORE": "neptune-graph://g-test123",
+            "GRAPH_STORE_READER": "neptune-graph://g-test123",
+            "VECTOR_STORE": "neptune-graph://g-test123",
+        }
         with patch("tiger_etf.config._find_config_yaml", return_value=Path("/nonexistent")):
-            s = Settings()
+            with patch.dict(os.environ, env):
+                s = Settings(_env_file=None)
 
-        assert s.graph_store.startswith("neptune-db://") or s.graph_store.startswith("neptune-graph://")
-        assert "aoss.amazonaws.com" in s.vector_store
+        assert s.graph_store.startswith("neptune-graph://")
+        assert s.vector_store.startswith("neptune-graph://")
+        # graph and vector use the same Neptune Analytics endpoint
+        assert s.graph_store == s.vector_store
 
-    def test_current_env_has_new_llm(self):
-        """The current .env should have updated LLM model names."""
+    def test_llm_settings(self):
+        """LLM model settings should contain expected values."""
         from tiger_etf.config import Settings
 
         with patch("tiger_etf.config._find_config_yaml", return_value=Path("/nonexistent")):
-            s = Settings()
+            s = Settings(_env_file=None)
 
         assert "anthropic" in s.graphrag_extraction_llm
         assert "titan" in s.graphrag_embedding_model

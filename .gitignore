@@ -26,3 +26,13 @@ cache/
 
 # Claude Code
 .claude/
+
+# experiments
+experiments/
+
+# Claude Code
+.claude/
+CLAUDE.md
+PLAN.md
+ANALYSIS.md
+PROGRESS.md

@@ -27,8 +27,6 @@ dependencies = [
     "PyMuPDF>=1.24",
     "boto3>=1.34",
     "pyyaml>=6.0",
-    "opensearch-py>=2.4",
-    "llama-index-vector-stores-opensearch>=1.0",
 ]
 
 [project.scripts]

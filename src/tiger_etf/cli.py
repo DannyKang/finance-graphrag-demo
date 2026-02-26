@@ -317,20 +317,20 @@ def graphrag_query(question: str) -> None:
 
 
 @graphrag.command("reset")
-@click.option("--graph-only", is_flag=True, help="Only reset graph store (Neptune).")
-@click.option("--vector-only", is_flag=True, help="Only reset vector store (OpenSearch).")
+@click.option("--graph-only", is_flag=True, help="Only reset graph store (Neptune Analytics).")
+@click.option("--vector-only", is_flag=True, help="Only reset vector nodes (Neptune Analytics).")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.")
 def graphrag_reset(graph_only: bool, vector_only: bool, yes: bool) -> None:
-    """Delete all data from graph and vector stores."""
+    """Delete all data from graph and vector stores (Neptune Analytics)."""
     from tiger_etf.graphrag.indexer import reset_all, reset_graph, reset_vector
 
     if not yes:
         if graph_only:
-            target = "graph store (Neptune)"
+            target = "graph store (Neptune Analytics)"
         elif vector_only:
-            target = "vector store (OpenSearch)"
+            target = "vector nodes (Neptune Analytics)"
         else:
-            target = "graph store (Neptune) and vector store (OpenSearch)"
+            target = "graph and vector stores (Neptune Analytics)"
         if not click.confirm(f"This will delete ALL data from {target}. Continue?"):
             console.print("[yellow]Aborted.[/yellow]")
             return

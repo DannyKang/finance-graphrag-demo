@@ -215,8 +215,9 @@ def _configure() -> None:
 def _make_stores():
     """Create graph and vector store instances.
 
-    Neptune and OpenSearch are auto-detected by graphrag_toolkit via
-    connection string prefix (neptune-graph://, aoss://, etc.).
+    Neptune Analytics is auto-detected by graphrag_toolkit via
+    connection string prefix (neptune-graph://).
+    Both graph and vector use the same Neptune Analytics endpoint.
     """
     from graphrag_toolkit.lexical_graph.storage import (
         GraphStoreFactory,
@@ -344,54 +345,52 @@ def reset_graph() -> int:
 
 
 def reset_vector() -> int:
-    """Delete the vector index from OpenSearch Serverless.
+    """Delete vector embeddings from Neptune Analytics.
 
-    Returns the number of documents that were in the index.
+    Removes the vector property from all nodes that have embeddings.
+    Returns the number of nodes that had embeddings removed.
     """
+    import json
+
     import boto3
-    from opensearchpy import (
-        OpenSearch,
-        RequestsAWSV4SignerAuth,
-        RequestsHttpConnection,
-    )
 
-    endpoint = settings.vector_store.rstrip("/")
-    # Extract region from endpoint (e.g., https://xxx.ap-northeast-2.aoss.amazonaws.com)
-    parts = endpoint.replace("https://", "").split(".")
+    from tiger_etf.graphrag.query import _parse_graph_store_uri
+
+    store_type, identifier = _parse_graph_store_uri(settings.vector_store)
+    if store_type != "analytics":
+        raise ValueError(
+            f"reset_vector only supports Neptune Analytics (neptune-graph://), got: {settings.vector_store}"
+        )
+
     region = settings.graphrag_aws_region
-    for i, p in enumerate(parts):
-        if p == "aoss":
-            region = parts[i - 1]
-            break
-
     session = boto3.Session(region_name=region)
-    credentials = session.get_credentials()
-    auth = RequestsAWSV4SignerAuth(credentials, region, "aoss")
+    client = session.client("neptune-graph")
 
-    host = endpoint.replace("https://", "")
-    client = OpenSearch(
-        hosts=[{"host": host, "port": 443}],
-        http_auth=auth,
-        use_ssl=True,
-        verify_certs=True,
-        connection_class=RequestsHttpConnection,
-    )
+    def run_query(cypher: str) -> list:
+        response = client.execute_query(
+            graphIdentifier=identifier,
+            queryString=cypher,
+            parameters={},
+            language="OPEN_CYPHER",
+            planCache="DISABLED",
+        )
+        return json.loads(response["payload"].read())["results"]
 
+    # Count nodes with vector embeddings (chunk and statement labels)
     deleted_total = 0
-    for index_name in ["chunk", "statement"]:
-        try:
-            count_resp = client.count(index=index_name)
-            count = count_resp.get("count", 0)
-            client.indices.delete(index=index_name)
+    for label in ["Chunk", "Statement"]:
+        results = run_query(
+            f"MATCH (n:`{label}`) RETURN count(n) AS cnt"
+        )
+        count = results[0]["cnt"] if results else 0
+        if count > 0:
+            run_query(f"MATCH (n:`{label}`) DETACH DELETE n")
+            logger.info("Deleted %d '%s' vector nodes.", count, label)
             deleted_total += count
-            logger.info("Deleted vector index '%s' (%d documents).", index_name, count)
-        except Exception as e:
-            if "index_not_found" in str(e).lower() or "404" in str(e):
-                logger.info("Vector index '%s' does not exist, skipping.", index_name)
-            else:
-                raise
+        else:
+            logger.info("No '%s' vector nodes found, skipping.", label)
 
-    logger.info("Vector reset complete. Deleted %d documents total.", deleted_total)
+    logger.info("Vector reset complete. Deleted %d nodes total.", deleted_total)
     return deleted_total
 
 
