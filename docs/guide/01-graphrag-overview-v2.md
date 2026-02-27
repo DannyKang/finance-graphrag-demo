@@ -6,6 +6,10 @@
 
 ### 기존 RAG의 한계
 
+![](./images/RAG_1.png)
+![](./images/RAG_2.png)
+![](./images/RAG_3.png)
+
 | 구분 | 기존 Vector RAG | GraphRAG |
 |------|----------------|----------|
 | 검색 방식 | 벡터 유사도 기반 chunk 검색 | 그래프 구조 탐색 + 벡터 검색 |
@@ -28,16 +32,6 @@
 
 ---
 
-## 1.2 GraphRAG의 여러 구현 방법
-
-| 구현체 | 특징 |
-|--------|------|
-| **Microsoft GraphRAG** | 커뮤니티 탐지 기반, 글로벌 요약 생성, Leiden 알고리즘 |
-| **LlamaIndex Property Graph** | LlamaIndex 생태계 통합, Property Graph 활용 |
-| **LangChain + Neo4j** | LangGraph 기반 에이전트, Cypher 쿼리 생성 |
-| **AWS GraphRAG Toolkit** | Amazon Neptune/Neo4j + OpenSearch/pgvector, 3-tier Lexical Graph, Bedrock LLM |
-
----
 
 ## 2. Graph Pattern
 
@@ -74,7 +68,6 @@
 
 #### 기본 Lexical Graph
 
-> 참조 이미지: `graphrag-kr/src/assets/images/knowledge-graph-lexical-graph.svg`
 
 ![](./images/knowledge-graph-lexical-graph.svg) 
 대규모 문서를 임베딩 생성을 위해 더 작은 조각(Chunk)으로 분할하는 것은 유용합니다.
@@ -96,8 +89,6 @@
 - **Chunk Node**: 사람이 읽을 수 있는 텍스트 + 벡터 임베딩
 
 #### Lexical Graph + 추출된 엔티티
-
-> 참조 이미지: `graphrag-kr/src/assets/images/knowledge-graph-lexical-graph-extracted-entities.svg`
 
 ![](./images/knowledge-graph-lexical-graph-extracted-entities.svg) 
 
@@ -147,5 +138,20 @@ Chunk에서 **실세계 엔티티를 서로 연결**하면, 벡터 검색과 함
 | **+ 가상 질문** | Chunk별 가상 질문 생성 | 질문-임베딩 간 의미적 매칭 개선 |
 | **+ 커뮤니티** | 계층적 커뮤니티 + 요약 | 글로벌/데이터셋 전체 질문 대응 |
 
+
+## 2.3 GraphRAG의 여러 구현 방법
+
+| 구현체 | 특징 |
+|--------|------|
+| **Microsoft GraphRAG** | 커뮤니티 탐지 기반, 글로벌 요약 생성, Leiden 알고리즘 |
+| **LlamaIndex Property Graph** | LlamaIndex 생태계 통합, Property Graph 활용 |
+| **LangChain + Neo4j** | LangGraph 기반 에이전트, Cypher 쿼리 생성 |
+| **AWS GraphRAG Toolkit** | Amazon Neptune/Neo4j + OpenSearch/pgvector, 3-tier Lexical Graph, Bedrock LLM |
+
+---
+
 > AWS GraphRAG Toolkit은 이 중 **엔티티 추출 + 계층 구조 + Sibling**을 결합한
 > **3-Tier Lexical Graph** 모델을 사용합니다. 다음 섹션에서 자세히 설명합니다.
+
+**참조**
+ - graphrag.com

@@ -49,6 +49,8 @@ TIGER ETF 221종의 상품 데이터를 **AWS GraphRAG Toolkit + Neptune DB + Op
 
 ETF 도메인에 특화된 **17개 엔티티 분류**와 **17개 관계 유형**을 정의했습니다.
 
+![](./images/ontology_1.png)
+
 ### 엔티티 분류 (Entity Classifications)
 
 > 소스: `aos-neptune/src/tiger_etf/graphrag/indexer.py`
@@ -100,6 +102,8 @@ ETF_ENTITY_CLASSIFICATIONS = [
 ### 커스텀 추출 프롬프트 (핵심 규칙)
 
 도메인 온톨로지를 강제하기 위해 커스텀 프롬프트에 다음 규칙을 포함합니다:
+
+
 
 ```
 Entity Classification Rules:
