@@ -496,6 +496,8 @@ __Chunk__ ◀──__MENTIONS_IN──▶ __Statement__                  │
 
 ## 4.5 질의 예시 (Traversal-Based Search)
 
+`LexicalGraphQueryEngine.for_traversal_based_search()`는 **벡터 검색으로 출발 노드를 찾고, 그래프 엣지를 따라 관련 Statement를 수집한 뒤, LLM이 최종 답변을 생성**하는 하이브리드 파이프라인입니다.
+
 > 소스: `aos-neptune/src/tiger_etf/graphrag/query.py`
 
 ```python
@@ -519,43 +521,264 @@ def query(question: str) -> str:
     return str(response)
 ```
 
-### 질문: "TIGER 미국S&P500의 주요 투자위험은?"
+### 전체 파이프라인 흐름
 
 ```
-① 질문 임베딩 생성 (Titan Embed v2, 1024차원)
-      │
-      ▼
-② OpenSearch에서 유사 Chunk/Statement 검색 (topK)
-   → "TIGER 미국S&P500 ETF는 환율변동위험이 있다" (score: 0.89)
-   → "이 투자신탁은 해외 자산에 투자하므로..." (score: 0.85)
-      │
-      ▼
-③ Neptune DB에서 그래프 탐색 (Traversal)
-   ├── ChunkBasedSearch: 유사 chunk → Topic/Statement/Fact 순회
-   │   → Topic "TIGER 미국S&P500 투자위험" 하위 Statement 모두 수집
-   │
-   └── EntityNetworkSearch: Entity Network 전사 → "다른 관련 정보" 검색
-       → TIGER 미국S&P500 → HAS_RISK → 환율변동위험, 시장위험, 추적오차위험
-       → TIGER 미국S&P500 → INVESTS_IN → 미국 주식 → LOCATED_IN → 미국 (환율 노출)
-      │
-      ▼
-④ 컨텍스트 조합 → Claude 3.7 Sonnet 응답 생성
+사용자 질의
+  │
+  ▼
+Phase 1. 질의 분석 & 엔티티 컨텍스트 추출
+  │  KeywordProvider → 키워드 추출
+  │  EntityContextProvider → 그래프에서 관련 엔티티 컨텍스트 수집
+  │  QueryModeRetriever → 질의 복잡도 판단 (SIMPLE / COMPLEX)
+  │
+  ▼
+Phase 2. 두 Retriever가 병렬로 시작 노드 탐색 (ThreadPoolExecutor)
+  │  ├── ChunkBasedSearch (weight=1.0)  : 벡터 유사도 → Chunk 출발
+  │  └── EntityNetworkSearch (weight=1.0): 엔티티 컨텍스트 → Entity/Topic 출발
+  │
+  ▼
+Phase 3. 그래프 순회 (Neptune OpenCypher)
+  │  시작 노드에서 엣지를 따라 Statement → Topic → Source 수집
+  │
+  ▼
+Phase 4. 후처리 파이프라인
+  │  Dedup → Rerank → Prune → Rescore → Truncate
+  │
+  ▼
+Phase 5. LLM 응답 생성 (Claude 3.7 Sonnet)
+  │  수집된 Statement + Entity Context → 근거 기반 답변
+  │
+  ▼
+최종 응답
 ```
 
-### 검색 결과 구조 예시
+### 구체적 예시: "TIGER 미국S&P500 ETF의 주요 보유종목과 비중은?"
+
+#### Phase 1 — 질의 분석 & 엔티티 컨텍스트 추출
+
+```
+사용자 질의 → KeywordProvider → 키워드 추출
+                                  │
+                          ["TIGER 미국S&P500", "보유종목", "비중"]
+                                  │
+                          EntityContextProvider
+                          → 그래프에서 관련 엔티티 컨텍스트 수집
+                                  │
+                          Entity Contexts:
+                            - "TIGER 미국S&P500" (label: ETF)
+                            - "S&P 500" (label: Index)
+```
+
+`QueryModeRetriever`가 질의 복잡도를 판단합니다. 이 질의는 단일 ETF에 대한 직접적 질문이므로 **SIMPLE** 모드로 처리됩니다. COMPLEX일 경우 키워드 기반 서브쿼리로 분해 후 병렬 실행합니다.
+
+#### Phase 2 — 두 Retriever가 병렬로 시작 노드 탐색
+
+`CompositeTraversalBasedRetriever`는 기본적으로 2개의 하위 검색기를 `ThreadPoolExecutor`로 **병렬 실행**합니다.
+
+**(A) ChunkBasedSearch** — 벡터 유사도 기반 Chunk 출발
+
+```
+1. 질의를 Amazon Titan Embed Text v2로 임베딩
+   "TIGER 미국S&P500 ETF의 주요 보유종목과 비중은?" → [0.023, -0.156, 0.891, ...]
+
+2. OpenSearch Serverless에서 벡터 유사도 검색 (topK)
+   → 유사한 Chunk 노드들을 반환:
+     - chunk_001: "TIGER 미국S&P500 ETF는 S&P 500 지수를 추적하며..." (score: 0.92)
+     - chunk_002: "주요 보유종목: Apple (7.2%), Microsoft (6.8%)..." (score: 0.89)
+     - chunk_003: "NVIDIA (5.1%), Amazon (4.3%), ..." (score: 0.85)
+```
+
+**(B) EntityNetworkSearch** — 엔티티 네트워크 기반 출발
+
+```
+1. 추출된 엔티티 컨텍스트로 벡터 검색
+   "TIGER 미국S&P500" → OpenSearch에서 Entity/Topic 노드 검색
+
+2. 엔티티 네트워크에서 관련 노드 탐색
+   → "TIGER 미국S&P500" 엔티티 → 연결된 Topic/Chunk 노드 식별
+```
+
+#### Phase 3 — 그래프 순회 (Neptune OpenCypher)
+
+각 Retriever가 찾은 시작 노드에서 Neptune DB의 엣지를 따라 순회하며 관련 Statement를 수집합니다.
+
+**(A) ChunkBasedSearch의 그래프 순회:**
+
+```cypher
+-- Chunk에서 출발하여 Statement → Topic → Source로 순회
+MATCH (c:Chunk)-[:HAS_STATEMENT]->(s:Statement)-[:SUPPORTS]->(t:Topic)
+WHERE c.chunkId IN ['chunk_001', 'chunk_002', 'chunk_003']
+RETURN s, t, source metadata
+```
+
+```
+chunk_001 ──HAS_STATEMENT──▶ Statement: "TIGER 미국S&P500 ETF는 S&P 500 지수를 추적한다"
+                                │
+                             SUPPORTS
+                                │
+                                ▼
+                          Topic: "TIGER 미국S&P500 투자 구조"
+                                │
+                         HAS_STATEMENT (같은 Topic의 다른 Statement도 수집)
+                                │
+                                ▼
+                          Statement: "미래에셋자산운용은 TIGER 미국S&P500 ETF를 운용한다"
+
+chunk_002 ──HAS_STATEMENT──▶ Statement: "Apple이 7.2%의 비중으로 편입되어 있다"
+chunk_003 ──HAS_STATEMENT──▶ Statement: "NVIDIA가 5.1%의 비중을 차지한다"
+```
+
+**(B) EntityNetworkSearch의 그래프 순회:**
+
+```
+Entity: "TIGER 미국S&P500"
+  │
+  ├── INVESTS_IN ──▶ Apple (Stock)      ← 보유종목 관계
+  ├── INVESTS_IN ──▶ NVIDIA (Stock)
+  ├── INVESTS_IN ──▶ Microsoft (Stock)
+  ├── TRACKS ──────▶ S&P 500 (Index)
+  └── HAS_FEE ────▶ 0.07% (Fee)
+        │
+        ▼
+  관련 Statement 노드들로 확장:
+  MATCH (e)-[:MENTIONED_IN]->(s:Statement)-[:SUPPORTS]->(t:Topic)
+  → Statement: "Apple Inc에 7.12% 비중으로 투자한다"
+  → Statement: "NVIDIA Corp에 6.89% 비중으로 투자한다"
+  → Statement: "Microsoft Corp에 6.54% 비중으로 투자한다"
+```
+
+**순회 결과를 그래프 구조로 시각화하면:**
+
+```
+                        ┌──────────────────────┐
+                        │   Source: 투자설명서    │
+                        │   (PDF 문서 메타데이터)  │
+                        └──────────┬───────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    ▼              ▼              ▼
+             ┌──────────┐  ┌──────────┐   ┌──────────┐
+             │ Topic:    │  │ Topic:    │   │ Topic:    │
+             │ ETF 상품  │  │ 보유종목  │   │ 투자전략  │
+             │ 개요      │  │ 구성      │   │          │
+             └────┬─────┘  └────┬─────┘   └────┬─────┘
+                  │             │              │
+            ┌─────┴────┐  ┌────┴─────┐   ┌───┴──────┐
+            ▼          ▼  ▼          ▼   ▼          ▼
+      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+      │Statement │ │Statement │ │Statement │ │Statement │
+      │"TIGER    │ │"Apple이  │ │"NVIDIA가 │ │"S&P 500  │
+      │ 미국S&P  │ │ 7.2%의   │ │ 5.1%의   │ │ 지수를   │
+      │ 500 ETF  │ │ 비중으로 │ │ 비중으로 │ │ 추적하는 │
+      │ 는..."   │ │ 편입"    │ │ 편입"    │ │ 전략"    │
+      └──────────┘ └──────────┘ └──────────┘ └──────────┘
+            │            │           │
+            ▼            ▼           ▼
+      ┌──────────┐ ┌──────────┐ ┌──────────┐
+      │ Chunk    │ │ Chunk    │ │ Chunk    │
+      │ (벡터    │ │ (벡터    │ │ (벡터    │
+      │  인덱스) │ │  인덱스) │ │  인덱스) │
+      └──────────┘ └──────────┘ └──────────┘
+```
+
+#### Phase 4 — 후처리 파이프라인
+
+두 Retriever가 수집한 결과를 순차적으로 정제합니다.
+
+```
+수집된 Statements (ChunkBasedSearch + EntityNetworkSearch 결과 합산)
+  │
+  ├── DedupResults          : 두 Retriever가 중복 발견한 Statement 제거
+  ├── DisaggregateResults   : 복합 결과를 개별 단위로 분리
+  ├── PopulateStatementStrs : Statement 노드에서 텍스트 문자열 추출
+  ├── RerankStatements      : 원래 질의와의 관련성으로 재순위화
+  ├── PruneStatements       : 낮은 점수의 Statement 제거
+  ├── RescoreResults        : Topic/Source 단위로 점수 재계산
+  ├── SortResults           : 점수 순으로 정렬
+  ├── TruncateStatements    : Statement 수 제한
+  ├── StatementsToStrings   : Statement를 텍스트 문자열로 변환
+  ├── FormatSources         : 출처 정보 포맷팅
+  └── TruncateResults       : 컨텍스트 윈도우에 맞게 최종 자르기
+```
+
+#### Phase 5 — LLM 응답 생성
+
+최종 정제된 컨텍스트가 Claude 3.7 Sonnet에 전달됩니다.
+
+```
+[Entity Contexts]
+- TIGER 미국S&P500 (ETF): S&P 500 지수를 추적하는 ETF 상품
+- S&P 500 (Index): 미국 대형주 500개 기업으로 구성된 지수
+
+[Search Results — Topic: 보유종목 구성]
+Source: KR70000D0009_prospectus_0506c0d9.pdf
+- "Apple이 7.2%의 비중으로 편입되어 있다"
+- "Microsoft가 6.8%의 비중으로 편입되어 있다"
+- "NVIDIA가 5.1%의 비중을 차지한다"
+- "Amazon이 4.3%의 비중으로 편입되어 있다"
+
+[Search Results — Topic: TIGER 미국S&P500 투자 구조]
+Source: rdb::360750
+- "TIGER 미국S&P500 ETF는 S&P 500 지수를 추적한다"
+- "총보수는 연 0.07%이다"
+
+[Question]
+TIGER 미국S&P500 ETF의 주요 보유종목과 비중은?
+```
+
+→ LLM이 **그래프에서 순회하여 수집된 증거만을 기반으로** 답변을 생성합니다.
+
+### 단순 벡터 RAG와의 차이점
+
+| 구분 | 단순 벡터 RAG | Traversal-Based Search |
+|------|-------------|----------------------|
+| **검색 방식** | 질의 임베딩 → 유사 Chunk 반환 | 벡터 검색은 **출발점**일 뿐, 그래프 엣지를 따라 순회 |
+| **정보 범위** | 단일 Chunk 내 정보만 반환 | Chunk → Statement → Topic → 같은 Topic의 다른 Statement까지 확장 |
+| **Multi-hop** | 불가능 | 가능 (TRACKS 역추적 → INVESTS_IN 순회 등) |
+| **중복 제거** | Chunk 단위 중복만 제거 | Fact 노드로 동일 사실의 다중 소스 자동 통합 |
+| **컨텍스트 품질** | 관련 없는 텍스트 포함 가능 | Statement 단위로 정제된 증거만 전달 |
+
+### 검색 결과 구조 예시 (SearchResult)
 
 ```json
 {
-  "source": "KR70000D0009_prospectus_0506c0d9.pdf",
-  "topic": "TIGER 미국S&P500 투자위험",
-  "statements": [
-    "TIGER 미국S&P500 ETF는 환율변동위험이 있다",
-    "이 투자신탁은 해외 자산에 투자하므로 환율 변동에 따른 손실이 발생할 수 있다",
-    "환헤지를 실시하지 않는다",
-    "주식시장의 변동에 따라 투자원본의 손실이 발생할 수 있다"
+  "score": 0.92,
+  "source": {
+    "sourceId": "KR70000D0009_prospectus_0506c0d9.pdf",
+    "metadata": {"ksd_fund_code": "KR70000D0009", "doc_type": "prospectus"}
+  },
+  "topics": [
+    {
+      "topic": "TIGER 미국S&P500 보유종목 구성",
+      "statements": [
+        {
+          "statement": "Apple이 7.2%의 비중으로 편입되어 있다",
+          "facts": ["TIGER 미국S&P500|INVESTS_IN|Apple Inc"],
+          "score": 0.92,
+          "retrievers": ["ChunkBasedSearch", "EntityNetworkSearch"]
+        },
+        {
+          "statement": "NVIDIA가 5.1%의 비중을 차지한다",
+          "facts": ["TIGER 미국S&P500|INVESTS_IN|NVIDIA Corp"],
+          "score": 0.88,
+          "retrievers": ["ChunkBasedSearch"]
+        }
+      ]
+    }
   ]
 }
 ```
+
+### 파이프라인 단계별 사용 기술 요약
+
+| 단계 | 역할 | 사용 기술 |
+|------|------|-----------|
+| **Phase 1** 질의 분석 | 키워드·엔티티 추출, 질의 복잡도 판단 | KeywordProvider, EntityContextProvider |
+| **Phase 2** 시작 노드 탐색 | 벡터 유사도로 Chunk/Entity 식별 | OpenSearch + Titan Embed v2 |
+| **Phase 3** 그래프 순회 | 엣지를 따라 Statement/Topic/Source 수집 | Neptune DB OpenCypher |
+| **Phase 4** 후처리 | 중복 제거, 재순위화, 가지치기 | 내장 Processor 체인 |
+| **Phase 5** 응답 생성 | 수집된 증거 기반 자연어 답변 | Claude 3.7 Sonnet (Bedrock) |
 
 ### 그래프 통계 확인 (Neptune OpenCypher)
 
